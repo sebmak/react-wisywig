@@ -206,7 +206,6 @@ WysiwygButton = React.createClass({
     }
   },
   checkActive: function(e){
-    console.log(this.props.preview,this.props.codeView);
     if(this.props.preview || this.props.codeView) return;
     if(Lodash.isElement(e.target) && document.querySelector('.wysiwyg').contains(e.target)){
       var isActive = document.queryCommandState(this.props.command);
@@ -236,13 +235,14 @@ WysiwygButton = React.createClass({
   }
 })
 
-module.exports = React.createClass({
-  getInitialProps: function(){
+var Wysiwyg = React.createClass({
+  getDefaultProps: function(){
     return {
       save: function(){},
       buttons: [],
       contents:false,
-      codeView: false
+      codeView: false,
+      callback: function(){}
     }
   },
   getInitialState: function(){
@@ -278,12 +278,10 @@ module.exports = React.createClass({
     } else {
       var newButtons = this.props.buttons;
     }
+
     var buttons = Update([
       [
         {type: 'Save', callback: this.save, command:'save',icon:'fa fa-floppy-o'}
-      ],
-      [
-        {type: 'Callback', callback:this.toggleEditable,state:'preview',icon:'fa fa-search'}
       ],
       [
         {type: 'Callback', callback:this.toggleCodeView,state:'codeView',icon:'fa fa-code'}
@@ -313,9 +311,6 @@ module.exports = React.createClass({
       ],
       [
         {type:'Link',command:'createLink',icon:'fa fa-link'}
-      ],
-      [
-        {type:'Iframe'}
       ]
     ],
     {$push: newButtons}
@@ -324,21 +319,30 @@ module.exports = React.createClass({
     this.setState({buttons:buttons});
 
   },
-  componentDidMount: function(){
-    this.refs.content.getDOMNode().innerHTML = this.props.contents || this.props.children
+  componentDidUpdate: function(props,state){
+    // if(this.props.contents!==props.contents){
+    //   this.refs.content.getDOMNode().innerHTML = this.props.contents;
+    // }
   },
-  mapButtons: function(button){
+  componentDidMount: function(){
+    var content = this.props.contents || this.props.children;
+    if(content == null){
+      content = '';
+    }
+    this.refs.content.getDOMNode().innerHTML = content;
+  },
+  mapButtons: function(button, index){
     if(Lodash.isArray(button)){
-      return <div className="wysiwyg-toolbar-group">{button.map(this.mapButtons)}</div>;
+      return <div key={index} className="wysiwyg-toolbar-group">{button.map(this.mapButtons)}</div>;
     }
     if(typeof(button.type)!=='undefined'){
       if(typeof(window['WysiwygButton'+button.type])=='undefined') return;
       if(button.type=='Callback'){
-        return React.createElement(window['WysiwygButton'+button.type], Update(button,{$merge: {preview:this.state.preview,codeView:this.state.codeView,state:this.state[button.state]}}));
+        return React.createElement(window['WysiwygButton'+button.type], Update(button,{$merge: {key:index,preview:this.state.preview,codeView:this.state.codeView,state:this.state[button.state]}}));
       }
-      return React.createElement(window['WysiwygButton'+button.type], Update(button,{$merge: {preview:this.state.preview,codeView:this.state.codeView}}));
+      return React.createElement(window['WysiwygButton'+button.type], Update(button,{$merge: {key:index,preview:this.state.preview,codeView:this.state.codeView}}));
     }
-    return <WysiwygButton command={button.command} preview={this.state.preview} codeView={this.state.codeView} icon={button.icon} />
+    return <WysiwygButton key={index} command={button.command} preview={this.state.preview} codeView={this.state.codeView} icon={button.icon} />
   },
   toggleableAction: function(type,e){
     var node = e.target;
@@ -372,6 +376,7 @@ module.exports = React.createClass({
         document.execCommand('insertHTML', false, '<br><br>');
       }
     }
+    this.props.callback(this.refs.content.getDOMNode().innerHTML);
   },
   handleMouseMove: function(e){
     //
@@ -407,3 +412,5 @@ module.exports = React.createClass({
     )
   }
 })
+
+module.exports = Wysiwyg;
